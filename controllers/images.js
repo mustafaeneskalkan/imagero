@@ -1,6 +1,8 @@
 const sharp = require('sharp');
 const fs = require('fs');
 const logger = require('../logger');
+const path = require('path');
+
 
 const APP_URL = process.env.APP_URL || 'https://imagero.yourdomain.com';
 
@@ -42,7 +44,18 @@ exports.getImage = async (req, res) => {
   logger.http(`Received request for image. Image Id: ${imageId}`);
 
   try {
-    const imagePath = `uploads/${imageId}.jpg`;
+    const uploadsDir = 'uploads/';
+    const matchingFiles = fs.readdirSync(uploadsDir)
+      .filter(file => file.startsWith(imageId));
+
+    if (matchingFiles.length === 0) {
+      logger.info('Image not found for Image Id: ' + imageId);
+      return res.status(404).json({ error: 'Image not found' });
+    }
+
+    // Take the first matching file (there should only be one)
+    const filename = matchingFiles[0];
+    const imagePath = path.join(uploadsDir, filename);
 
     if (fs.existsSync(imagePath)) {
       logger.debug(`Sending original image: ${imagePath}`);
@@ -75,8 +88,26 @@ exports.getCustomSizedImage = async (req, res) => {
   }
 
   try {
-    const imagePath = `uploads/${imageId}.jpg`;
-    const resizedPath = `resized/${width}x${height}-${imageId}.jpg`;
+    const uploadsDir = 'uploads/';
+    const matchingFiles = fs.readdirSync(uploadsDir)
+      .filter(file => file.startsWith(imageId));
+
+    if (matchingFiles.length === 0) {
+      logger.info('Original image not found for Image Id: ' + imageId);
+      return res.status(404).json({ error: 'Original image not found' });
+    }
+
+    const originalFilename = matchingFiles[0];
+    const imagePath = path.join(uploadsDir, originalFilename);
+    const fileExt = path.extname(originalFilename);
+
+    // Create resized directory if it doesn't exist
+    const resizedDir = 'resized/';
+    if (!fs.existsSync(resizedDir)) {
+      fs.mkdirSync(resizedDir, { recursive: true });
+    }
+
+    const resizedPath = path.join(resizedDir, `${width}x${height}-${imageId}${fileExt}`);
 
     if (fs.existsSync(resizedPath)) {
       logger.debug(`Returning cached resized image: ${resizedPath}`);
@@ -116,8 +147,26 @@ exports.getCroppedImage = async (req, res) => {
   }
 
   try {
-    const imagePath = `uploads/${imageId}.jpg`;
-    const croppedPath = `cropped/${x}x${y}-${width}x${height}-${imageId}.jpg`;
+    const uploadsDir = 'uploads/';
+    const matchingFiles = fs.readdirSync(uploadsDir)
+      .filter(file => file.startsWith(imageId));
+
+    if (matchingFiles.length === 0) {
+      logger.info('Original image not found for Image Id: ' + imageId);
+      return res.status(404).json({ error: 'Original image not found' });
+    }
+
+    const originalFilename = matchingFiles[0];
+    const imagePath = path.join(uploadsDir, originalFilename);
+    const fileExt = path.extname(originalFilename);
+
+    // Create cropped directory if it doesn't exist
+    const croppedDir = 'cropped/';
+    if (!fs.existsSync(croppedDir)) {
+      fs.mkdirSync(croppedDir, { recursive: true });
+    }
+
+    const croppedPath = path.join(croppedDir, `${x}x${y}-${width}x${height}-${imageId}${fileExt}`);
 
     if (fs.existsSync(croppedPath)) {
       logger.debug(`Returning cached cropped image: ${croppedPath}`);
